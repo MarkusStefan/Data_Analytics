@@ -3,15 +3,20 @@ title: "Ex1_Prep&Viz"
 author: "Markus Köfler"
 date: "`r Sys.Date()`"
 output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
 ```{r}
 # installing and loading required packages
-packages <- c("tidyverse", "dplyr", "janitor", "stargazer", "haven", 'bigutilsr',  'magrittr', "FinAna",
-              "lubridate")
+packages <- c("tidyverse", "dplyr", "janitor", "stargazer", 
+              "haven", 'bigutilsr',  'magrittr', "FinAna",
+              "lubridate", "png")
 
 package_installer <- function (list_of_packages){
   for(package in list_of_packages) {
@@ -28,9 +33,10 @@ package_installer <- function (list_of_packages){
 package_installer(packages)
 ```
 
-
 # 1
+
 ## 1.1 Outlier analysis I
+
 Consider the data set USJudgeRatings in R
 
 ```{r}
@@ -41,6 +47,7 @@ USJR <-  USJudgeRatings
 ```
 
 ### (a) Check the description of the data.
+
 ```{r}
 # help command ? to retrieve metadata
 ?USJudgeRatings
@@ -55,18 +62,20 @@ USJR %>% glimpse()
 USJR %>% colnames()
 USJR 
 ```
-Wee see that the lawyers' names are used to lable the rows. We can extract these and use them later for analysis.
-Will we spot underperformers?
+
+Wee see that the lawyers' names are used to lable the rows. We can
+extract these and use them later for analysis. Will we spot
+underperformers?
+
 ```{r}
 lawyers <- rownames(USJR)
 lawyers
 ```
 
-
-
 ### (b) For all variables: try different instruments for outlier analysis as discussed in
-lecture and identify potential outliers.
-- Boxplots
+
+lecture and identify potential outliers. - Boxplots
+
 ```{r}
  # i = 1, 2, 3, ..., number of colums
 for (i in 1:length(colnames(USJR))) {
@@ -75,10 +84,11 @@ for (i in 1:length(colnames(USJR))) {
   boxplot(USJR[, i], main= as.character(colnames(USJR)[i]))
 }
 ```
-- z-score
-$$
-z = \frac{x - \bar{x}}{\sigma} = \frac{x-\mu}{\sigma}
-$$
+
+-   z-score $$
+    z = \frac{x - \bar{x}}{\sigma} = \frac{x-\mu}{\sigma}
+    $$
+
 ```{r}
 for (i in 1:ncol(USJR)) {
   if (i==1) {
@@ -103,11 +113,14 @@ colnames(z_scores) <- colnames(USJR)
 rownames(z_scores) <- lawyers
 #z_scores %>% View()
 ```
+
 count the number of outlier ratings for each lawyer if $-2.7<z<2.7$
+
 ```{r}
 outlier_df <- ifelse(abs(z_scores) >= 2.8, 1, 0) %>% as.data.frame()
 outlier_df
 ```
+
 ```{r}
 #rsums <- outlier_df %>% rowSums() %>% as.vector()
 #outlier_df <- outlier_df %>% cbind(rsums, lawyers) %>% as.data.frame()
@@ -117,6 +130,7 @@ outlier_df <- outlier_df %>% mutate(outlier_df,
                                  FAMI + ORAL + WRIT +PHYS + RTEN))
 outlier_df
 ```
+
 ```{r}
 # base R barplot
 barplot(rowSums(outlier_df), cex.axis=2, las=2, col=2)
@@ -124,9 +138,11 @@ barplot(rowSums(outlier_df), cex.axis=2, las=2, col=2)
 ggplot(data=outlier_df, aes(x=lawyers)) +
   geom_bar(aes(weight=rsums))
 ```
+
 ```{r}
 outlier_df %>% summarize(lawyers, rsums) %>% arrange(-rsums) %>% head(10)
 ```
+
 ```{r}
 outliers <- boxplot(USJudgeRatings, plot = FALSE)$out
 
@@ -134,9 +150,8 @@ outliers <- boxplot(USJudgeRatings, plot = FALSE)$out
 cat("Indices of potential outliers:", which(apply(USJudgeRatings, 2, function(x) x %in% outliers)), "\n")
 ```
 
-
-
 outlier clustering with dbscan
+
 ```{r}
 library(dbscan)
 dist_mtx <- dist(USJR)
@@ -148,19 +163,23 @@ outlier_indices <- which(cluster$cluster == 0)
 print(outlier_indices)
 ```
 
-
 # 2
+
 ## 1.2 Outlier analysis II
+
 ### (a) Choose any company from the Austrian Traded Index (ATX) and download
+
 the stock prices for this company in 2022 (daily basis).
+
 ```{r}
-RBI <- read_csv("RBI.VI.csv")
+RBI <- read_csv("https://raw.githubusercontent.com/MarkusStefan/Data_Analytics/main/RBI.VI.csv")
 # creating columns for month and year
 RBI <- RBI %>% mutate(month = months(RBI$Date),
                       year = year(RBI$Date))
 ```
 
 ### (b) Based on the data from (a), calculate daily revenues of the stock prices.
+
 ```{r}
 RBI <- RBI %>% mutate(DailyRev =
   (RBI$`Adj Close` - RBI$Open) * RBI$Volume)
@@ -168,9 +187,11 @@ RBI <- RBI %>% mutate(DailyRev =
 ggplot(data=RBI, aes(x=Date, y=DailyRev)) +
   geom_line(col='dark blue')
 ```
+
 ### (c) Try different instruments for outlier analysis as discussed in lecture and identify
-potential outliers.
-- Standardizing the data (z-scores)
+
+potential outliers. - Standardizing the data (z-scores)
+
 ```{r}
 RBI <- RBI %>% mutate(DailyRevNorm =
   (DailyRev-mean(DailyRev))/sd(DailyRev))
@@ -178,6 +199,7 @@ RBI <- RBI %>% mutate(DailyRevNorm =
 ggplot(data=RBI, aes(x=Date, y=DailyRevNorm)) +
   geom_line(col='dark blue')
 ```
+
 removing outliers by z-scores
 
 ```{r}
@@ -193,16 +215,17 @@ barplot(table(m), las=2, col=3)
 barplot(table(y), col="pink")
 ```
 
+-   Outlier analysis with interquantile range
 
-- Outlier analysis with interquantile range
+option to spot outliers with `boxplot()`
 
-option to spot outliers with boxplot()
 ```{r}
 boxplot(RBI$DailyRev)$out
 
 ```
 
 function for computing the values of Q1 and Q3
+
 ```{r}
 q1q3 <- function(x) {
   sorted <- sort(x, decreasing=F)
@@ -246,6 +269,7 @@ no_outliers <- RBI[!RBI$DailyRev < (q1-1.5*q1_q3) | RBI$DailyRev > (q3+1.5*q1_q3
 no_outliers
 
 ```
+
 ```{r}
 ggplot(data=no_outliers, aes(x=Date, y=DailyRev, col=factor(year))) +
   geom_line() +
@@ -257,7 +281,8 @@ ggplot(data=no_outliers, aes(x=Date, y=DailyRevNorm, color=month)) +
 
 ```
 
-outiers per month
+outliers per month
+
 ```{r}
 # binary classification, whether revenue is an outlier or not
 RBI <- RBI %>% mutate(outlier=ifelse(abs(DailyRevNorm) > 3, 1, 0))
@@ -267,7 +292,9 @@ RBI %>%
     summarize(total_outliers = sum(outlier)) %>% 
     arrange(-total_outliers)
 ```
+
 time, when most outliers occured
+
 ```{r}
 RBI <- RBI %>% mutate(MY=paste(month, year, sep='/'))
 RBI %>% 
@@ -278,52 +305,83 @@ RBI %>%
 ```
 
 # 3
-## 1.3 Prepare a brief country profile of your country of origin using the data from The
-World Factbook of CIA and compare the data of ’your’ country with the data for
-Austria. (If your country of origin is Austria you can take any other country for
-comparison). The country profile should include:
-```{r}
-CIA <- read_csv("export.csv")
 
+## 1.3 Prepare a brief country profile of your country of origin using the data from The World Factbook of CIA and compare the data of 'your' country with the data for Austria. (If your country of origin is Austria you can take any other country for comparison). The country profile should include:
+
+```{r}
+#CIA <- read_csv("export.csv", sep=';')
+#CIA
 countries <- c("AT", "DE")
 pop <- c(9000000, 79000000)
+public_debt <- c( 99.91, 63.90)
+unrate <- c(6.3, 3.54)
+gdp <- c()
 
-comparison <- matrix(countries, pop, nrow=2, ncol=2, byrow = F)
+
+comparison <- data.frame(countries, pop, unrate)
 comparison
 
-barplot(comparison[, 2])
+#barplot(data=comparison[, 2])
+ggplot(comparison, aes(x = countries, y = pop)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  labs(x = "Country", y = "Population Size") +
+  ggtitle("Population Sizes of Germany and Austria")
+
 ```
 
 ### (a) Four general statistics (plots): population, GDP, unemployment, public debt.
-```{r}
 
+```{r}
+library(reticulate)
+use_condaenv('C:/Users/HP/AppData/Local/r-miniconda/envs/r-reticulate/python.exe')
+conda_create("r-env", python_version = "3.8")
+
+# Activate the environment
+use_condaenv("r-env", required = TRUE)
+
+# Install numpy and pandas using conda
+conda_install(c("numpy", "pandas"))
 ```
 
 ### (b) One statistics which you choose on your own.
 
-### (c) All data should be presented in an appropriate way (as discussed in the lecture)
-to allow for a comparison of two countries.
+```{python}
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import requests
+url = "https://www.imf.org/external/datamapper/api/v1/NGDP_RPCH/AUT/DEU?year=2023&yaxis=lin"
+response = requests.get(url)
+data = response.json()
 
-# 4 
+df = pd.read_json(url)
+
+data
+```
+
+```{python}
+for i in range(10):
+  print(i)
+```
+
+### (c) All data should be presented in an appropriate way (as discussed in the lecture) to allow for a comparison of two countries.
+
+# 4
+
 ## 1.4 Data preparation and visualization
-### (a) Download happiness scores from the World Happiness Report (the Gallup World
-Poll) from www.ourworldindata.org (happiness-cantril-ladder.csv). The main
-life evaluation question asked in the poll is: “Please imagine a ladder, with
-steps numbered from 0 at the bottom to 10 at the top. The top of the ladder
-represents the best possible life for you and the bottom of the ladder represents
-the worst possible life for you. On which step of the ladder would you say you
-personally feel you stand at this time?” (Also known as the “Cantril Ladder”.)
+
+### (a) Download happiness scores from the World Happiness Report (the Gallup World Poll) from www.ourworldindata.org (happiness-cantril-ladder.csv). The main life evaluation question asked in the poll is: "Please imagine a ladder, with steps numbered from 0 at the bottom to 10 at the top. The top of the ladder represents the best possible life for you and the bottom of the ladder represents the worst possible life for you. On which step of the ladder would you say you personally feel you stand at this time?" (Also known as the "Cantril Ladder".)
+
 ```{r}
 #happy <- read_csv("https://raw.githubusercontent.com/etadpu/open_source_data/main/happiness-cantril-ladder.csv")
-happy <- read_csv("happiness-cantril-ladder.csv")
+happy <- read_csv("https://raw.githubusercontent.com/MarkusStefan/Data_Analytics/main/happiness-cantril-ladder.csv")
 # clean column names 
 colnames(happy) <- make_clean_names(colnames(happy))
 happy
 ```
 
+### (b) The imported data should consist of 4 columns. Find and present 5 countries with the highest/lowest happiness in 2010 and in 2020.
 
-### (b) The imported data should consist of 4 columns. Find and present 5 countries
-with the highest/lowest happiness in 2010 and in 2020.
 ```{r}
 # extracting relevant years form panel data
 # remove columns 2 & 3 s.t. only the country and the happyness score remain
@@ -341,10 +399,8 @@ head(h2020, 5); top_n(h2020, -5)
 
 ```
 
+### (c) Find 5 countries with the biggest absolute change (both increase and decrease) of happiness between 2010 and 2020. *Take care of countries where data for 2010 or 2020 is missing!*
 
-
-### (c) Find 5 countries with the biggest absolute change (both increase and decrease)
-of happiness between 2010 and 2020. *Take care of countries where data for 2010 or 2020 is missing!*
 ```{r}
 # merging both dataframes on the country column
 h_2010_2020 <- merge(h2010, h2020, by="entity", all.x = TRUE)
@@ -363,12 +419,65 @@ sqldf("
       ")
 ```
 
+```{r}
+h_2010_2020 <- h_2010_2020 %>% 
+  mutate(neg_difference = (score2020-score2010),
+         pos_difference = (score2020-score2010))
+# negative difference = happyness score decreased from 2010 to 2020
+h_2010_2020 %>% select(entity, neg_difference) %>%  arrange(neg_difference);
+# positive difference = happyness score increased from 2010 to 2020
+h_2010_2020 %>% select(entity, pos_difference) %>%  arrange(-pos_difference)
+```
 
 # 5
+
 ## 1.5 Visual manipulation
-### (a) Construct three bad or inappropriate visual representations of the data. Inappropriate in the meaning as discussed in the lecture (insufficient information
-on data, poor quality, etc.).
-### (b) You can use any data prepared for this exercise. You can also use a new dataset.
-In addition, you can download annual data on causes of death in a country of
-your interest from Eurostat. Information on data: standardised death rate
-[HLTH CD ASDR], total population regarding sex and age, from 1994 to 2010.
+
+### (a) Construct *three* bad or inappropriate visual representations of the data. Inappropriate in the meaning as discussed in the lecture (insufficient informationon data, poor quality, etc.).
+
+```{r}
+ggplot(diamonds, aes(cut, carat), color=factor(price)) +
+  geom_point() 
+ggplot(diamonds, aes(cut, carat), color=factor(price)) +
+  geom_line() +
+  facet_wrap(~depth)
+```
+
+### (b) You can use any data prepared for this exercise. You can also use a new dataset. In addition, you can download annual data on causes of death in a country of your interest from Eurostat. Information on data: standardized death rate [HLTH CD ASDR], total population regarding sex and age, from 1994 to 2010.
+
+```{r}
+death <- read.csv("https://raw.githubusercontent.com/MarkusStefan/Data_Analytics/main/Death_Causes_Eurostat.csv")
+```
+
+```{r}
+pie(x=death[,1], main="EU27 deaths")
+legend("topright", inset = 0.05, title = "Legend", legend = death$TIME, fill=rainbow(factor(death$TIME)))
+```
+
+```{r}
+for (c in 2:ncol(death)){
+  if (c==2){
+    pool <- data.frame(death$TIME, death[, c], rep(colnames(death)[c], 10))
+  }
+  else {
+    pool <- pool %>% rbind(data.frame(death$TIME, death[, c], rep(colnames(death)[c], 10)))
+  }
+}
+pool <- pool %>% clean_names()
+```
+
+```{r}
+ggplot(pool, aes(x=pool$death_time) )+
+  geom_point(aes(y=pool$death_c)) +
+  facet_wrap(~pool$rep_colnames_death_c_10)
+```
+
+```{r}
+barplot(height = pool$death_c, width=0.001)
+```
+
+```{r}
+ggplot(pool, aes(x=pool$death_time, y=pool$death_c)) +
+  geom_point(col=2) +
+  stat_smooth(method='lm')
+```
