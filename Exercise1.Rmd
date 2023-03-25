@@ -16,7 +16,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # installing and loading required packages
 packages <- c("tidyverse", "dplyr", "janitor", "stargazer", 
               "haven", 'bigutilsr',  'magrittr', "FinAna",
-              "lubridate", "png")
+              "lubridate", "png", 'moments')
 
 package_installer <- function (list_of_packages){
   for(package in list_of_packages) {
@@ -81,7 +81,7 @@ lecture and identify potential outliers. - Boxplots
 for (i in 1:length(colnames(USJR))) {
   # index for matrices or data frames-> [rows, cols]
   # title for each boxplot
-  boxplot(USJR[, i], main= as.character(colnames(USJR)[i]))
+  boxplot(USJR[, i], main= as.character(colnames(USJR)[i]),col=12, alpha=0.5)
 }
 ```
 
@@ -136,7 +136,9 @@ outlier_df
 barplot(rowSums(outlier_df), cex.axis=2, las=2, col=2)
 # ggplot
 ggplot(data=outlier_df, aes(x=lawyers)) +
-  geom_bar(aes(weight=rsums))
+  geom_bar(aes(weight=rsums), fill='purple', alpha=0.6) +
+  theme(axis.text.x = element_text(angle = 90, hjust=1))
+
 ```
 
 ```{r}
@@ -161,6 +163,31 @@ cluster <- dbscan(dist_mtx, eps = 1, minPts = 5)
 # print the outlier indices
 outlier_indices <- which(cluster$cluster == 0)
 print(outlier_indices)
+```
+
+-   skewness & kurtosis
+
+```{r}
+# initiating empty vectors to store values
+s <- c()
+k <- c()
+for (i in 1:length(colnames(USJR))) {
+  skew <- skewness(USJR[, i]); s <- append(s, skew);
+  kurt <- kurtosis(USJR[, i]); k <- append(k, kurt);
+}
+
+#USJR <- USJR %>% rbind(s, k)
+USJR
+```
+
+```{r}
+par(mfrow = c(3, 4)) 
+for (i in 1:ncol(USJR)) { 
+  densityPlot <- density(USJR[, i])
+  mu <- mean(USJR[, i])
+  plot(densityPlot, main = colnames(USJR)[i], col=2) 
+  abline(v=mu, col='blue')
+}
 ```
 
 # 2
@@ -331,37 +358,48 @@ ggplot(comparison, aes(x = countries, y = pop)) +
 
 ### (a) Four general statistics (plots): population, GDP, unemployment, public debt.
 
-```{r}
-library(reticulate)
-use_condaenv('C:/Users/HP/AppData/Local/r-miniconda/envs/r-reticulate/python.exe')
-conda_create("r-env", python_version = "3.8")
+```{r eval=FALSE, include=FALSE}
+#library(reticulate)
+#use_condaenv('C:/Users/HP/AppData/Local/r-miniconda/envs/r-reticulate/python.exe')
+#conda_create("r-env", python_version = "3.8")
 
 # Activate the environment
-use_condaenv("r-env", required = TRUE)
+#use_condaenv("r-env", required = TRUE)
 
 # Install numpy and pandas using conda
-conda_install(c("numpy", "pandas"))
+#conda_install(c("numpy", "pandas"))
 ```
 
 ### (b) One statistics which you choose on your own.
 
 ```{python}
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import requests
-url = "https://www.imf.org/external/datamapper/api/v1/NGDP_RPCH/AUT/DEU?year=2023&yaxis=lin"
-response = requests.get(url)
-data = response.json()
-
-df = pd.read_json(url)
-
-data
+#import pandas as pd
+#import numpy as np
+#import matplotlib.pyplot as plt
+#import requests
+#url = "https://www.imf.org/external/datamapper/api/v1/NGDP_RPCH/AUT/DEU?year=2023&yaxis=lin"
+#response = requests.get(url)
+#data = response.json()
+#df = pd.read_json(url)
+#data
 ```
 
 ```{python}
-for i in range(10):
-  print(i)
+def loop(msg):
+  dic = {}
+  for l in msg:
+    if l not in dic:
+      dic[l] = 1
+    else:
+      dic[l] += 1
+  ls = []
+  for i in range(len(dic)):
+    ls.append(i)
+  print(msg)
+  return dic, ls
+
+
+loop('hello world!')
 ```
 
 ### (c) All data should be presented in an appropriate way (as discussed in the lecture) to allow for a comparison of two countries.
