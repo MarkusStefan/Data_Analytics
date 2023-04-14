@@ -137,8 +137,8 @@ yogurt as LHS and one item as RHS.
 set.
 
 ```{r}
-# -2 to disregard the index and yoghurt columns
 T. <- nrow(retail)
+# -c(1,3) to disregard the index and yogurt columns
 for (i in colnames(retail)[-c(1,3)]) {
   suppAB <- sum(retail$Yogurt == 1 & retail[[i]] == 1) / T.
   cat(paste("The support for Yogurt and", i, "is", 
@@ -163,7 +163,7 @@ conf(A \to B) = \frac{supp(A,B)}{supp(A)} =
 $$
 
 ```{r}
-# -2 to disregard the index and yoghurt columns
+# -c(1,3) to disregard the index and yogurt columns
 for (i in colnames(retail)[-c(1,3)]) {
   # note that the division by T. of both suppAB and suppB is redundant
   suppAB <- sum(retail$Yogurt == 1 & retail[[i]] == 1) / T.
@@ -193,7 +193,7 @@ lift(A \to B) == lift(B \to A)
 $$
 
 ```{r}
-# -2 to disregard the index and yoghurt columns
+# -c(1,3) to disregard the index [1] and yogurt [3] columns
 for (i in colnames(retail)[-c(1,3)]) {
   
   suppAB <- sum(retail$Yogurt == 1 & retail[[i]] == 1) / T.
@@ -252,10 +252,10 @@ for (pair in bi_sets) {
 
 [Interpretation:]{.underline}
 
--   The most frequently bought bundle is {Bread, Yoghurt} with 55%,
-    followed by {Yoghurt, Egg} with 22%.
+-   The most frequently bought bundle is {Bread, yogurt} with 55%,
+    followed by {yogurt, Egg} with 22%.
 
--   Surprisingly, the likelihood of "Yoghurt" being bought is 40% if
+-   Surprisingly, the likelihood of "yogurt" being bought is 40% if
     "Dog_Food" is bought. Attention to the interpretation: If the good
     of the LHS is purchased very frequently, the confidence will most
     likely be very high, despite the weak relationship. Lift is the
@@ -266,13 +266,10 @@ for (pair in bi_sets) {
     consumption are, of course, frequently bought together. This does
     not imply that they are necessarily complements to each other.
 
-```{=html}
-<!-- -->
-```
--   The results suggest, that only the item set {Bread -\> Yoghurt} (and
+-   The results suggest, that only the item set {Bread -\> yogurt} (and
     vice versa yields the same result) are positively correlated, for
     all other item sets, they appear to negatively influence each other
-    in terms of being purchased together. Hence, "Bread" and "Yoghurt"
+    in terms of being purchased together. Hence, "Bread" and "yogurt"
     seem to complement each other.
 
 # (2.4)
@@ -281,23 +278,26 @@ Calculate the support, the confidence, and the lift for all rules with
 **(bread, egg)** as LHS and one item as RHS, e.g. (bread, egg) → yogurt.
 
 ```{r}
-# Subset data to include only rows where bread and egg are both 1
-sub_retail <- retail[retail$Bread == 1 & retail$Egg == 1,]
-
-T. <- nrow(sub_retail)
+T. <- nrow(retail)
 # excluding id, bread and egg columns
-for(i in colnames(sub_retail)[-c(1,2,4)]) {
-  # Calculate support
-  suppA <- sum(sub_retail[,c("Bread","Egg",i)] == 1) / T.
+for(i in colnames(retail)[-c(1,2,4)]) {
+  # support
+  # note that it is not necessary to explicitly state the condition for each column
+  # if the condition for all columns is the same i.e. == 1
+  suppA <- sum(retail[["Bread"]] == 1 & retail[["Egg"]] == 1) / T.
+         # sum(retail[["Bread"]] ____ & retail[["Egg"]] == 1) == 1 can be left out at ___
+  suppB <- sum(retail[[i]] == 1) / T.
+          # sum(retail$Bread == 1 & retail$Egg == 1)
+  suppAB <- sum(retail[["Bread"]] == 1  & retail[["Egg"]] == 1 & retail[[i]] == 1) / T.
   
-  # Calculate confidence
-  confAB <- sum(sub_retail[,c("Bread","Egg",i)] == 1) / sum(sub_retail$Bread == 1 & sub_retail$Egg == 1)
+  # confidence
+  confAB <- suppAB / suppA
   
-  # Calculate lift
-  liftAB <- suppA / ((sum(sub_retail$Bread == 1 & sub_retail$Egg == 1) / T.) * (sum(sub_retail[,i] == 1) / T.))
+  # lift
+  liftAB <- confAB / suppB
   
-  # Print results
-  cat(sprintf("{(%s, %s) -> %s}: support=%.2f, confidence=%.2f, lift=%.2f\n", "Bread", "Egg", i, suppA, confAB, liftAB))
+  cat(sprintf("{(%s, %s) -> %s}: support=%.2f, confidence=%.2f, lift=%.2f\n", "Bread", "Egg", 
+              i, suppA, confAB, liftAB))
 }
 ```
 
@@ -306,23 +306,20 @@ for(i in colnames(sub_retail)[-c(1,2,4)]) {
 **Apriori algorithm**
 
 -   Apriori algorithm is the most popular algorithm used for association
-    rule mining. The
-    objective is to find subsets that are common to at least a minimum
-    number of the item
-    sets. A frequent item set is an item set whose support is greater
-    than or equal to
-    minimum support threshold.
+    rule mining. The objective is to find subsets that are common to at
+    least a minimum number of the item sets. A frequent item set is an
+    item set whose support is greater than or equal to minimum support
+    threshold.
 
 -   The Apriori property is a downward closure property, which means
-    that all nonempty
-    subsets of a frequent item set must also be frequent.
+    that all nonempty subsets of a frequent item set must also be
+    frequent.
 
 -   Apriori algorithm uses a bottom-up approach; and the size of
-    frequent subsets is gradually
-    increased, from one-item subsets to two-item subsets, then
-    three-item subsets, and so on.
-    Groups of candidates at each level are tested against the data for
-    minimum support.
+    frequent subsets is gradually increased, from one-item subsets to
+    two-item subsets, then three-item subsets, and so on. Groups of
+    candidates at each level are tested against the data for minimum
+    support.
 
 ## (a)
 
@@ -360,11 +357,11 @@ inspect(sort(Groceries_rules, by = "lift",
 
 [Interpretation:]{.underline}
 
-This means that 5.6% of all transactions contain both "yoghurt" and
-"whole milk", and that among those transactions, if "yoghurt" is
+This means that 5.6% of all transactions contain both "yogurt" and
+"whole milk", and that among those transactions, if "yogurt" is
 purchased, the likelihood for "whole milk" to be purchased is 40.2% (so,
-of all purchases containing "yoghurt", 40.2% of them also contain "whole
-milk"). The lift value of 1.57 indicates that the presence of "yoghurt"
+of all purchases containing "yogurt", 40.2% of them also contain "whole
+milk"). The lift value of 1.57 indicates that the presence of "yogurt"
 and "whole milk" in a transaction is 1.57 times more likely than would
 be expected if the two items were independent.
 
@@ -384,7 +381,7 @@ be expected if the two items were independent.
     confidence for other vegetables to be purchased in conjunction to
     citrus fruits and root vegetables (category: fruits & vegetables);
     similarily, we can be confident that 58% of purchases indlucing curd
-    and yoghurt also include whole milk (category: dairy).
+    and yogurt also include whole milk (category: dairy).
 
 -   The bundles with the highest confidence have (roughly) the highest
     lift values, indicating a (strongly) positive relationship.
@@ -457,6 +454,29 @@ library(arulesViz)
 itemFrequencyPlot(Adult, type = "absolute", topN = 20)
 ```
 
+```{r}
+rules <- apriori(Adult, parameter = 
+                   list(support = 0.5, confidence = 0.9))
+
+# rules by support
+rules_supp <- sort(rules, by = "support", decreasing = TRUE)
+
+# top three rules by support
+top_rules_supp <- head(rules_supp, n = 3)
+
+# rules by confidence
+rules_conf <- sort(rules, by = "confidence", decreasing = TRUE)
+
+# top three rules by confidence
+top_rules_conf <- head(rules_conf, n = 3)
+
+# rules by lift
+rules_lift <- sort(rules, by = "lift", decreasing = TRUE)
+
+# Get the top three rules by lift
+top_rules_lift <- head(rules_lift, n = 3)
+```
+
 ## (d)
 
 Use "Adult" data set. Calculate all interesting (non-empty) rules with
@@ -483,7 +503,7 @@ top_rules_conf <- head(rules_conf, n = 3)
 # rules by lift
 rules_lift <- sort(rules, by = "lift", decreasing = TRUE)
 
-# Get the top three rules by lift
+# top three rules by lift
 top_rules_lift <- head(rules_lift, n = 3)
 ```
 
@@ -495,7 +515,7 @@ inspect(top_rules_conf)
 inspect(top_rules_lift)
 ```
 
-Data Mining:
+[Data Mining:]{.underline}
 
 -   not very useful conclusions, as some variables are linked, hence,
     imply each other. E.g.: if relationship = Husband, intuition tells
