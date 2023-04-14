@@ -3,4 +3,4 @@ This exercise deals with the (elementary) unsupervised learning techniques used 
 The concepts are very simplistic but powerful. 
 
 In the lecture and exercise, we only touched upon the apriori algorithm without investigating how it exactly works.
-I implemented my own version of the ** apriori algorithm ** in python - take a look and try to understand whats going on ;-)
+I implemented my own version of the __apriori algorithm__ in python - take a look and try to understand whats going on ;-)
