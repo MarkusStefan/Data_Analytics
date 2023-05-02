@@ -1,4 +1,4 @@
-;population;life_expect;fertility;fertility_adol;mortal_5;mobile_phones;migration;electricity;gdp;inflation;pop_growth;surface_area;unemployment_rate
+country;population;life_expect;fertility;fertility_adol;mortal_5;mobile_phones;migration;electricity;gdp;inflation;pop_growth;surface_area;unemployment_rate
 Afghanistan;38972230;62,58;4,75;84,3;57,8;58,19;166821;97,7;553,04;5,6;3,13;652860;11,71
 Albania;2837849;76,99;1,4;14,67;9,4;91,35;-9117;100;4410,46;1,62;-0,57;28750;13,07
 Algeria;43451666;74,45;2,94;12,06;22,9;104,84;-18797;99,8;3873,51;2,42;1,73;2381741;12,25
