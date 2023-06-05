@@ -1,0 +1,1024 @@
+---
+title: "Regression_Analysis"
+author: "Markus Köfler"
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include=FALSE}
+rm(list=ls())
+packages <- c("tidyverse", "dplyr", "janitor", "stargazer", 
+              "haven", 'bigutilsr',  'magrittr', "FinAna",
+              "lubridate", 'moments', 'sqldf', "datasets")
+
+package_installer <- function (list_of_packages){
+  for(package in list_of_packages) {
+    if(!require(package, character.only = TRUE)) {
+      install.packages(package, dependencies = TRUE)
+      require(package, character.only = TRUE)
+      }
+    else {
+      next
+    }
+  }
+}
+
+package_installer(packages)
+```
+
+# (4.1)
+
+Use "airquality" data set which provides air quality measurements in New
+York.
+
+```{r}
+data("airquality")
+air <- airquality
+air %>% head(7)
+```
+
+## (a)
+
+Identify variables which are strongly/weakly positively/negatively
+correlated.
+
+Pearson Correlation:
+
+$$
+\rho_{x,y} = \frac{\sum_{i=1}^n x_i y_i - n\bar{x}\bar{y}}{n\times sd_x sd_y}
+$$
+
+```{r}
+vec <- c()
+for (i in colnames(air)){
+  for (j in colnames(air)){
+    
+    if (i == j){
+      next
+    }
+    # %in% returns the Boolean for each vector element
+    else if (paste(j,i, sep=' - ') %in% names(vec)){
+      next
+    }
+    
+    else{
+      # use="complete.obs" to omit NA values
+      c_ <- cor(air[[i]], air[[j]], use="complete.obs", 
+                method='pearson') 
+      names(c_) <- paste(i,j, sep=' - ')
+      vec <- vec %>% append(c_)
+      }
+  }
+}
+
+cat("3 highest correlations:\n", 
+    head(names(vec[vec %>% order(decreasing=T)]), n=3),"\n", 
+    head(vec[vec %>% order(decreasing=T)], n=3), "\n", sep="\t"
+    )
+
+cat("\n3 lowest correlations:\n", 
+    head(names(vec[vec %>% order(decreasing=F)]), n=3),"\n", 
+    head(vec[vec %>% order(decreasing=F)], n=3), "\n", sep="\t"
+    )
+```
+
+## (b)
+
+Use t test and check if temperature is significantly different from 79.
+
+$H_0:\quad \text{The temperature is equal to 79}$
+
+$H_1:\quad \text{The temperature is not equal to 79}$
+
+$$
+t = \frac{\hat{\beta_j}}{\hat{se(\hat{\beta_j}})}
+$$
+
+$$
+t = \frac{\rho_{x,y}}{\sqrt{1-\rho_{x,y}}}\times \sqrt{n-2}
+$$
+
+the critical value is:
+
+$$
+t = \frac{\hat{\beta_1}+\hat{\beta_2}}{\hat{se}(\hat{\beta_1}+\hat{\beta_2})}
+$$
+
+wherby
+
+$$
+\hat{se}(\hat{\beta_1}+\hat{\beta_2}) = \sqrt{\hat{se}(\hat{\beta_1}) + \hat{se}(\hat{\beta_2}) + 2* \hat{cov}(\hat{\beta_1},\hat{\beta_1})}
+$$
+
+df = (n-k-1) k-number of independent variables -1 \|\| (n-p) p-number of
+coefficients
+
+```{r}
+# test whether the mean of Temp significantly differs from 79
+t.test(air$Temp, mu = 79)
+```
+
+79 is included in the CI, therefore the $H_0$ is not rejected! Also, the
+p-value 14.62% threshold is higher than the common significance level of
+5%, so there is NOT enough evidence to reject the null.
+
+```{r include=FALSE}
+t_test_plot <- function(data, t_statistic, alpha=0.05){
+  # computing the critical value
+  n <- nrow(data)
+  df <- n-ncol(data)
+  # critical value 2 tailed -> alpha/2 -> two tailed test != 0
+  cv2 <- qt(1-(alpha/2), df)
+  # lower rejection region is the same value just negative!
+  # qt(alpha/2, df)
+  
+  t_dist <- data.frame(x = c(-4, 4))
+  lower_rj <- c(-4,(-1)*cv2)
+  upper_rj <- c(cv2, 4)
+  
+  # plot the t-distribution
+  g <- ggplot(data=t_dist, aes(x = x)) +
+    geom_area(stat = "function", fun = dt, args = list(df = df),
+              fill='white') +
+    geom_area(stat = "function", fun = dt, args = list(df = df), 
+              fill='orange', xlim=lower_rj) +
+    geom_area(stat = "function", fun = dt, args = list(df = df), 
+              fill='orange', xlim=upper_rj) +
+    geom_line(stat = "function", fun = dt, args = list(df = df)) +
+  
+    geom_vline(xintercept = cv2, col=2, lwd=1.1) +
+    geom_vline(xintercept = cv2*(-1), col=2, lwd=1.1) +
+    geom_vline(xintercept = t_statistic , col=4) +
+    geom_text(aes(x = t_statistic, y=0.3), label='test', col=4) 
+  return(g)
+  
+}
+
+#t_test_plot(data=air, t_statistic = t.test(air$Temp, mu = 79)$statistic, alpha = 0.05)
+
+url <- "https://raw.githubusercontent.com/MarkusStefan/Economics/main/t_test_plot.R"
+```
+
+```{r}
+source(url)
+t_test_plot(data=air, t_statistic = t.test(air$Temp, mu = 79)$statistic, alpha = 0.05)
+```
+
+```{r eval=FALSE, include=FALSE}
+# t-statistic
+t <- t.test(air$Temp, mu = 79)$statistic
+
+# computing the critical value
+n <- nrow(air)
+df <- n-ncol(air)
+alpha <- 0.05
+# critical value 2 tailed -> alpha/2 -> two tailed test != 0
+cv2 <- qt(1-(alpha/2), df)
+# lower rejection region is the same value just negative!
+# qt(alpha/2, df)
+
+t_dist <- data.frame(x = c(-4, 4))
+lower_rj <- c(-4,(-1)*cv2)
+upper_rj <- c(cv2, 4)
+
+# plot the t-distribution
+ggplot(data=t_dist, aes(x = x)) +
+  geom_area(stat = "function", fun = dt, args = list(df = df),
+            fill='white') +
+  geom_area(stat = "function", fun = dt, args = list(df = df), 
+            fill='orange', xlim=lower_rj) +
+  geom_area(stat = "function", fun = dt, args = list(df = df), 
+            fill='orange', xlim=upper_rj) +
+  geom_line(stat = "function", fun = dt, args = list(df = df)) +
+
+  geom_vline(xintercept = cv2, col=2, lwd=1.1) +
+  geom_vline(xintercept = cv2*(-1), col=2, lwd=1.1) +
+  geom_vline(xintercept = t , col=4) +
+  geom_text(aes(x = t, y=0.3), label='temp', col=4) 
+```
+
+```{r}
+# elements containing temperature
+vec[c(3, 7, 10, 13, 14)]
+t <- t.test(air$Temp, air$Ozone)
+t$statistic
+```
+
+```{r eval=FALSE, include=FALSE}
+#library(broom)
+#coeff <- tidy(model1)
+#std_errs <- summary(model1)$coefficients[,'Std. Error']
+#betaj <- summary(model1)$coefficients[,'Estimate']
+
+#coeff; std_errs; betaj
+```
+
+## (c)
+
+Split the data into sample A with observations 1 to 77 and sample B with
+observations 78 to 153. Use t test and check if temperature is
+significantly different between samples A and B.
+
+$H_0:\quad \text{The temperature is equal in both samples A and B}$
+
+$H_1:\quad \text{The temperature is not equal in both samples A and B}$
+
+```{r}
+
+A <- air[1:77,]
+B <- air[78:153,]
+
+# two-sample t-test
+t.test(A$Temp, B$Temp)
+```
+
+The p-value threshold is much lower than 5% ---\> 0.0000211 \< 0.05.
+Therefore the $H_0$ is rejected at the 5% significance level. This
+suggests that the temperature differs significantly in both samples!
+
+```{r}
+t_test_plot(data=air, t_statistic = t.test(A$Temp, B$Temp)$statistic, alpha = 0.05)
+```
+
+# (4.2)
+
+Use "countries data" data set (from practical unit 3) which provides
+socioeconomic profiles of countries in 2020.
+
+```{r include=FALSE}
+countries <- read.csv("https://raw.githubusercontent.com/MarkusStefan/Data_Analytics/main/Exercise3/countries_data1.csv")
+```
+
+```{r}
+# store the non-numeric column country as rownames
+rownames(countries) <- countries$country
+countries <- countries %>% select(-country)
+countries %>% head(n=5)
+```
+
+## (a)
+
+Calculate pairwise correlation coefficients.
+
+```{r}
+vec <- c()
+for (i in colnames(countries)){
+  for (j in colnames(countries)){
+    
+    if (i == j){
+      next
+    }
+    # %in% returns the Boolean for each vector element
+    else if (paste(j,i, sep=' - ') %in% names(vec)){
+      next
+    }
+    
+    else{
+      # use="complete.obs" to omit NA values
+      c_ <- cor(countries[[i]], countries[[j]], use="complete.obs", 
+                method='pearson') 
+      names(c_) <- paste(i,j, sep=' - ')
+      vec <- vec %>% append(c_)
+      }
+  }
+}
+
+n <- 5
+
+cat("5highest correlations:\n", 
+    head(names(vec[vec %>% order(decreasing=T)]), n=n),"\n", 
+    head(vec[vec %>% order(decreasing=T)], n=n), "\n", sep="\n\t"
+    )
+
+cat("\n5 lowest correlations:\n", 
+    head(names(vec[vec %>% order(decreasing=F)]), n=n),"\n", 
+    head(vec[vec %>% order(decreasing=F)], n=n), "\n", sep="\n\t"
+    )
+```
+
+## (b)
+
+Identify the indicators with the highest/lowest positive/negative
+correlation.
+
+```{r, results='asis'}
+n <- 5
+
+cat("5highest correlations:\n", 
+    head(names(vec[vec %>% order(decreasing=T)]), n=n),"\n", 
+    head(vec[vec %>% order(decreasing=T)], n=n), "\n", sep="\n\t"
+    )
+
+cat("\n5 lowest correlations:\n", 
+    head(names(vec[vec %>% order(decreasing=F)]), n=n),"\n", 
+    head(vec[vec %>% order(decreasing=F)], n=n), "\n", sep="\n\t"
+    )
+```
+
+## (c)
+
+Use t test and check if the correlation coefficients from (b) are
+significantly positive/negative (two-tailed test; one-sided p-value
+test).
+
+```{r}
+signif_threshold <- 0.05
+rejected <- c()
+not_rejected <- c()
+for (r in 1:length(vec)){
+  rho <- vec[r]
+  n <- nrow(countries) - sum(is.na(
+    countries[[gsub("-", " ", names(vec[r]))[1]]]))
+  
+  # computing t-statistic and its p-value
+  # n-2 to account for DF
+  t_stat <- rho * sqrt(n - 2) / sqrt(1 - rho^2)
+  p_val <- pt(t_stat, df = n - 2, lower.tail = FALSE)
+  
+  cat("Correlation coefficient:", names(vec[r]), "=", rho, "\n")
+  cat("Sample size:", n, "\n")
+  cat("One-sided t-test p-value:", p_val, "\n")
+  if (p_val < signif_threshold){
+    verdict <- "Reject H0"
+    rejected <- rejected %>% append(names(vec[r]))
+  }
+  else {
+    verdict <- "Don't reject H0"
+    not_rejected <- not_rejected %>% append(names(vec[r]))
+  }
+  cat("Verdict:", verdict, "\n\n", sep=' ')
+
+}
+```
+
+**Rejected Tests (correlation is insignificant)**
+
+```{r}
+rejected
+```
+
+**Not Rejected Tests (significant correlation)**
+
+```{r}
+not_rejected
+```
+
+# (4.3)
+
+Use the "airquality" data set.
+
+## (a)
+
+Remove NAs from the data set. Use the new data set in the next steps.
+
+```{r}
+data("airquality")
+air <- na.omit(airquality)
+#air %>% head(n=5)
+air[["Temp"]] %>% mean()
+sum(air[["Temp"]]) - mean(air[["Temp"]])
+```
+
+## (b)
+
+Calculate the parameters of the linear regressions ($\beta_0$ and
+$\beta_1$) according to equations (2) and (3) from chapter 5.
+
+$$
+(1)\qquad \hat{\beta}_0 = \bar{y} - \hat{\beta}_1\bar{x}
+$$ $$
+(2)\qquad \hat{\beta}_1 = \frac{\sum_{t=1}^T (x_t-\bar{x}) (y_t-\bar{y})}{
+\sum_{t=1}^T (x_t-\bar{x})^2}
+$$
+
+First, we need to calculate $\hat{\beta}1$*, then we are able to solve
+for* $\hat{\beta}_0$ :
+
+```{r}
+vec <- c()
+regress <- c()
+for (y in colnames(air)){
+  for (x in colnames(air)){
+    if (y == x){
+      next
+    }
+    # %in% returns the Boolean for each vector element
+    else if (paste(x,y, sep=' - ') %in% regress){
+      next
+    }
+    
+    else{
+      regress <- regress %>% append(paste(y, x, sep=' - '))
+      x_ <- air[[x]]
+      y_ <- air[[y]]
+      mux <- mean(x_)
+      muy <- mean(y_)
+     # sumx <- sum(x_-mux)
+    #  sumy <- sum(y_-muy)
+      beta1 <- sum((x_-mux) * (y_-muy)) / sum((x_-mux)^2)
+      
+      beta0 <- muy - beta1*mux
+      lr_expr <- paste(y, "=", round(beta0,2), 
+                       "+", round(beta1,2),'*', x, sep=" ");
+      cat(lr_expr, '\n')
+      }
+  }
+}
+```
+
+**Validation using built-in** `lm()` **function**
+
+```{r}
+vec <- c()
+regress <- c()
+for (y in colnames(air)){
+  for (x in colnames(air)){
+    if (y == x){
+      next
+    }
+    # %in% returns the Boolean for each vector element
+    else if (paste(x,y, sep=' - ') %in% regress){
+      next
+    }
+    
+    else{
+      regress <- regress %>% append(paste(y, x, sep=' - '))
+      model <- lm(air[[y]] ~ air[[x]])
+      coefs <- summary(model)$coefficients
+      beta1 <- coefs[2]
+      beta0 <- coefs[1]
+      lr_expr <- paste(y, "=", round(beta0,2), 
+                       "+", round(beta1,2),'*', x, sep=' ');
+      cat(lr_expr, '\n')
+    }
+  }
+}
+```
+
+## (c)
+
+Run OLS estimation of the linear regression between temperature as
+independent variable and ozone pollution as dependent variable and
+compare the obtained parameters with the ones from (b).
+
+```{r}
+vec <- c()
+regress <- c()
+for (y in colnames(air)){
+  for (x in colnames(air)){
+    if (y == x){
+      next
+    }
+    # %in% returns the Boolean for each vector element
+    else if (paste(x,y, sep=' - ') %in% regress){
+      next
+    }
+    
+    else{
+      regress <- regress %>% append(paste(y, x, sep=' - '))
+      model <- lm(air[[y]] ~ air[[x]])
+      coefs <- summary(model)$coefficients
+      beta1 <- coefs[2]
+      beta0 <- coefs[1]
+      lr_expr <- paste(y, "=", round(beta0,2), 
+                       "+", round(beta1,2),'*', x, sep=' ');
+      cat(lr_expr, '\n')
+    }
+  }
+}
+```
+
+Results are the same. Manual calculation have been carried out
+correctly.
+
+## (d)
+
+Plot the scatter plot and the regression line for considered variables.
+
+```{r}
+# squeeze all 15 plots into one 
+par(mfrow = c(3, 5))
+#par(mfrow=c(1, 2))
+
+vec <- c()
+regress <- c()
+for (y in colnames(air)){
+  for (x in colnames(air)){
+    if (y == x){
+      next
+    }
+    # %in% returns the Boolean for each vector element
+    else if (paste(x,y, sep=' - ') %in% regress){
+      next
+    }
+    
+    else{
+      regress <- regress %>% append(paste(y, x, sep=' - '))
+      model <- lm(air[[y]] ~ air[[x]])
+      coefs <- summary(model)$coefficients
+      beta1 <- coefs[2]
+      beta0 <- coefs[1]
+      # scatter
+      plot(air[[x]], air[[y]], main = paste(y, "~", x), 
+           xlab = x, ylab = y, 
+           sub = paste("R2:", round(summary(model)$r.squared, 3)))
+      # regression line
+      abline(beta0, beta1, col = "red")
+    }
+  }
+}
+
+```
+
+# (4.4)
+
+Use "longley" data set which provides US economical variables, observed
+yearly from 1947 to 1962. The Longley dataset contains various US
+macroeconomic variables that are known to be highly collinear. It has
+been used to appraise the accuracy of least squares routines.
+
+```{r}
+data("longley")
+long <- longley
+long
+```
+
+## (a)
+
+Run OLS estimation between the number of employed people as independent
+variable and the number of the unemployed people as dependent variable.
+
+```{r}
+model <- lm(long$Unemployed~long$Employed)
+smry <- summary(model)
+model %>% summary()
+```
+
+## (b)
+
+Discuss the quality of the estimation in (a) using discussed criteria.
+
+First of all, we cannot expect a perfect estimating because we only got
+16 data points. This is not much.
+
+#### I Good BLUE estimator if:
+
+-   linear coefs -\> CHECK ... linear relationship among regressand and
+    regressor
+
+    ```{r}
+    ggplot(data=long, aes(x = Employed, y=Unemployed), col=3) +
+      geom_point() +
+      geom_smooth(se=F, col=4, lwd=0.7, lty=2) +
+      geom_smooth(se=F, col=2, method='lm')
+      
+    ```
+
+-   error term $\epsilon$ or $\hat{u}$ has a conditional mean of
+    $E(\epsilon | X) = 0$ for $x_1, x_2, \dots, x_T \in X$
+
+    ```{r}
+    smry$residuals %>% mean()
+    ```
+
+    diminishing low -\> CHECK
+
+-   no autocorrelation among error terms (error terms are uncorrelated)
+
+-   $\epsilon$ has a constant variance $E(\epsilon^2|X)=\sigma^2$ and is
+    thus homoscedastic
+
+    ```{r}
+    model %>% plot()
+    ```
+
+    Straight-line QQ-plot and randomness in the scatter, suggesting
+    constant variance, hence, no heteroscedasticity.
+
+-   no multicollinearity among predictors, i.e., no perfect or close to
+    perfect linear relationship among predictor variables
+    $x_1, x_2, \dots, x_T$ ... does not apply because we only got one
+    predictor
+
+#### II Quality of the model (t & F test, R\^2):
+
+##### 1 Significance of coefficient (t-test):
+
+the critical value (t) is:$$
+t = \frac{\hat{\beta_1}+\hat{\beta_2}}{\hat{se}(\hat{\beta_1}+\hat{\beta_2})}
+$$
+
+wherby
+
+$$
+\hat{se}(\hat{\beta_1}+\hat{\beta_2}) = \sqrt{\hat{se}(\hat{\beta_1}) + \hat{se}(\hat{\beta_2}) + 2* \hat{cov}(\hat{\beta_1},\hat{\beta_1})}
+$$
+
+To determine the critical value for the t-test:
+
+`t_statistic <- coefficient / standard_error critical_value <- qt(1 - level_of_significance / 2, DegreesOfFreedom)`
+
+```{r}
+coefs <- smry$coefficients
+
+# we are only interested in beta1 (slope parameter)
+beta1 <- coefs[2]
+
+library(broom)
+coefs <- tidy(model)
+std_errs <- summary(model)$coefficients[,'Std. Error']
+betas <- summary(model)$coefficients[,'Estimate']
+beta1 <- betas[2]
+stderrb1 <- std_errs[2]
+
+t <- beta1 / stderrb1
+t
+
+```
+
+```{r eval=FALSE, include=FALSE}
+level_of_significance <- 0.05
+n <- long %>% nrow()
+# degrees of freedom
+DF <- n-1 
+critical_value <- qt(1 - (level_of_significance / 2), DF) 
+
+if (abs(t) > critical_value){
+  print("beta_1 is significant at the 5% level")
+}
+if (abs(t) < critical_value){
+  print("beta1 is NOT significant at the 5% level")
+}
+```
+
+```{r}
+sgnfcnc <- c(0.1, 0.05, 0.01, 0.001)
+n <- long %>% nrow()
+# degrees of freedom
+DF <- n-1 
+for (s in sgnfcnc){
+  critical_value <- qt(1 - (s / 2), DF)
+
+  if (abs(t) > critical_value){
+    cat("beta_1 is significant at the", s*100, "% level\n")
+  }
+  else {
+    cat("beta1 is NOT significant at the ", s*100, 
+        "% level\n", sep="")
+  }
+}
+```
+
+Results can be validated by summary output of the model.
+
+##### 2 Significance of regression (one-tailed F-test):
+
+```{r}
+F_statistic <- smry$fstatistic[1]
+
+for (s in sgnfcnc){
+
+  critical_F_value <- qf(1-s, 2, DF)
+
+  #print(critical_F_value)
+
+  if (abs(F_statistic) > critical_F_value){
+
+    cat("Regression is significant at the", s*100, "% level\n")
+
+  }
+
+  else {
+
+    cat("Regression is NOT significant at the ", s*100, 
+
+        "% level\n", sep="")
+
+  }
+
+}
+```
+
+##### 3 (Adj.) \$R\^2\$:
+
+$$
+R^2 = corr(\hat{y}, y)^2 = \frac{ESS}{TSS} = 
+1- \frac{RSS}{TSS}
+$$
+
+$$
+Adj. R^2 = 1-\frac{RSS}{TSS}\times \frac{T-1}{T-N}
+$$
+
+with $RSS = \sum_{t=1}^T(y_t-\hat{y}_t)^2$ ,
+$TSS = \sum_{t=1}^T(y_t-\bar{y}_t)^2$ and
+$ESS = \sum_{t=1}^T(\hat{y}_t-\bar{y}_t)^2$
+
+whereby TSS = RSS + ESS, or equally:
+
+$$
+Adj. R^2 = 1- \frac{(1-R^2)(T-1)}{T-p-1}
+$$
+
+with $T$ as sample size, $p$ as number of predictors.
+
+```{r}
+y_hat <- predict(model, long)
+y <- long$Unemployed
+ESS <- sum(y_hat - mean(y)) #%>% sum()
+RSS <- sum(y - y_hat) #%>% sum()
+TSS <-sum(y - mean(y)) #%>% sum()
+
+# check if calculations are correct
+(ESS + RSS) == TSS
+
+adjR2 <- 1- (RSS/TSS) * ((length(y)-1)/(length(y)-1))#* ((length(y)-1)/(length(y)-1)))
+adjR2
+ESS/TSS
+r2 <- cor(y_hat, y)^2
+T. <- length(y)
+adjR2 <- 1- ( (1-r2) * (T.-1)) / (T. - 1 - 1)
+adjR2
+```
+
+## (c)
+
+Which variable(s) from the "longley" data set can be used as an
+additional explanatory variable? Run this estimation as well.
+
+```{r}
+data <- long %>% select(-Year)
+
+for (var in colnames(data)){
+  if (var == "Unemployed"){
+    next
+  }
+  formula <- (paste("Unemployed ~", var))
+ # model <- lm(formula=paste("Unemployed ~", var), data=data)
+  model <- lm(formula= as.formula(formula), data=data);
+  smry <- model %>% summary()
+  critical_F_value <- qf(1-s, 2, smry$df)
+  cat("Unemployed ~ ", var, "\nAdj.R2:", smry$adj.r.squared, "\nF:",
+     as.character(smry$fstatistic[1]),
+      "\ncritical F:", critical_F_value[2], "\n\n")
+}
+```
+
+Only Population can be used, as the F-statistics is greater than the
+threshold critical F value of 11.7787.
+
+    Unemployed ~  Population 
+    Adj.R2: 0.4335925 
+    F: 12.4826994058209 
+    critical F: 11.77887 
+
+```{r}
+lm(long$Unemployed~long$Population) %>% summary()
+```
+
+Stepwise Linear Regression is a method that makes use of linear
+regression to discover which subset of attributes in the dataset result
+in the best performing model. It is step-wise because each iteration of
+the method makes a change to the set of attributes and creates a model
+to evaluate the performance of the set. The regression
+**`lm(Employed ~ .)`** is known to be highly collinear.
+
+```{r}
+base <- lm(Employed~., longley)
+# summarize the fit
+summary(base)
+# perform step-wise feature selection
+fit <- step(base)
+# summarize the selected model
+summary(fit)
+```
+
+## (d)
+
+Discuss the quality of the performed estimation in terms of assumptions
+of the OLS estimation (page 18 in unit 5).
+
+in (4.4)(b) !
+
+# (4.5)
+
+Use "countries data" data set (from practical unit 3) which provides
+socioeconomic profiles of countries in 2020.
+
+```{r include=FALSE}
+countries <- read.csv("https://raw.githubusercontent.com/MarkusStefan/Data_Analytics/main/Exercise3/countries_data1.csv")
+```
+
+```{r}
+# store the non-numeric column country as rownames
+rownames(countries) <- countries$country
+countries <- countries %>% select(-country)
+countries %>% head(n=5)
+```
+
+## (a)
+
+Run 3 different models (set of at least two independent variables) to
+explain the variable 'life expectation'.
+
+All possible Multivariate Regressions with 2 predictors for life_expect:
+
+```{r}
+data <- countries
+bestF <- c()
+bestR2 <- c()
+for (var1 in colnames(data)){
+  for (var2 in colnames(data)){
+    # | or operator
+  if (var1 == "life_expect" | var2 == "life_expect" | var1 == var2){
+    next
+  }
+  formula <- (paste("life_expect ~", var1, "+", var2))
+  # model <- lm(formula=paste("Unemployed ~", var), data=data)
+  model <- lm(formula= as.formula(formula), data=data);
+  smry <- model %>% summary()
+  critical_F_value <- qf(1-s, 2, smry$df)
+  cat("life_expect ~ ", var1,"+", var2, "\nAdj.R2:", 
+      smry$adj.r.squared, "\nF:",
+     as.character(smry$fstatistic[1]),
+      "\ncritical F:", critical_F_value[2], "\n\n")
+  
+  signifF <- smry$fstatistic[1] - critical_F_value[2]
+  names(signifF) <- paste("life_expect ~", var1, "+", var2)
+  bestF <- bestF %>% append(signifF)
+  adjR2 <- smry$adj.r.squared
+  names(adjR2) <- paste("life_expect ~", var1, "+", var2)
+  bestR2 <- bestR2 %>% append(adjR2)
+  
+  }
+}
+```
+
+Ranking the most significant Regressions according to the difference
+between F-statistics and critical F value and according to highest adj.
+$R^2$
+
+```{r}
+# vector c(1,3,5) because double entries
+bestF[order(bestF, decreasing=T)][c(1,3,5)] %>% data.frame(  ) 
+
+bestR2[order(bestR2, decreasing=T)][c(1,3,5)] %>% data.frame(  ) 
+```
+
+Regardless of F-test for significance of Regression, or adj. R2
+criteria, the 3 best Regressions are:
+
+| Regression call                          | F-statistics - Critical F value | adj. R2   |
+|-------------------------------|------------------------|------------------|
+| life_expect \~ mortal_5 + gdp            | 547.1414                        | 0.8743802 |
+| life_expect \~ fertility_adol + mortal_5 | 336.2029                        | 0.8115773 |
+| life_expect \~ fertility + mortal_5      | 319.3775                        | 0.8037513 |
+
+## (b)
+
+Choose the "best" model from (a). Explain your choice using discussed
+criteria (check, among other information, different graphical
+representations of the residuals).
+
+```{r}
+
+lm1 <- lm(data=countries, formula="life_expect ~ mortal_5 + gdp") %>% 
+  summary()
+lm2 <- lm(data=countries, 
+          formula="life_expect ~ fertility_adol + mortal_5") %>% summary()
+lm3 <- lm(data=countries, 
+          formula= "life_expect ~ fertility + mortal_5") %>% summary()
+
+lm_1 <- lm(data=countries, formula="life_expect ~ mortal_5 + gdp") 
+lm_2 <- lm(data=countries, 
+          formula="life_expect ~ fertility_adol + mortal_5")
+lm_3 <- lm(data=countries, 
+          formula= "life_expect ~ fertility + mortal_5") 
+
+```
+
+#### 0 All models are linear in coefficients
+
+```{r}
+lm1$coefficients; lm2$coefficients; lm3$coefficients
+```
+
+Check! - all coefficients are linear
+
+#### 1 Zero conditional mean of error term $\epsilon$ given X (independent variable)
+
+error term $\epsilon$ or $\hat{u}$ has a conditional mean of
+$E(\epsilon | X) = 0$ for $x_1, x_2, \dots, x_T \in X$
+
+```{r}
+lm1$residuals %>% mean()
+lm2$residuals %>% mean()
+lm3$residuals %>% mean()
+```
+
+Check!- They are all very very close to approaching 0
+
+#### 2 Independent vars are uncorrelated with $\epsilon$
+
+```{r, results='asis'}
+cat("lm1:\n")
+cor(countries$mortal_5, lm1$residuals)
+cor(countries$gdp, lm1$residuals)
+
+
+cat("\nlm2:\n")
+cor(countries$fertility_adol, lm2$residuals)
+cor(countries$mortal_5, lm2$residuals)
+
+
+cat("\nlm3:\n")
+cor(countries$fertility, lm3$residuals)
+cor(countries$mortal_5, lm3$residuals)
+```
+
+Check! - Their correlation is insignificantly small
+
+#### 3 Error terms are uncorrelated with each other (no auto-correlation)
+
+Note: if the scatter plots appear rather random, no auto-correlation is
+present. Say, there is a funnel shape or any other non-random pattern,
+then this suggests that the variance of the error term is not constant
+across all levels of the independent variables.
+
+```{r}
+#par(mfrow = c(1,3))
+plot(resid(lm_1), predict(lm_1))
+plot(resid(lm_2), predict(lm_2))
+plot(resid(lm_3), predict(lm_3))
+
+```
+
+Check! - Error terms seem to be random
+
+```{r eval=FALSE, include=FALSE}
+plot(lm(life_expect~population, data=countries))
+```
+
+#### 4 Normality of error term (implying a mean of 0 and constant variance of $\sigma^2$
+
+```{r}
+par(mfrow=c(3, 2))
+
+hist(resid(lm_1), breaks=50, col=2)
+qqnorm(resid(lm_1))
+
+hist(resid(lm_2), breaks=50, col=3)
+qqnorm(resid(lm_2))
+
+hist(resid(lm_3), breaks=50, col=4)
+qqnorm(resid(lm_3))
+```
+
+Check! - histograms show a centering around the mean of 0 and an quite
+equal distribution. The QQ-plots also seem to fit well to a straight
+line.
+
+#### 5 No multi-collinearity among regressors (independent variables)
+
+```{r, results='asis'}
+cat("lm1:\n")
+cor(countries$mortal_5, countries$gdp)
+
+
+cat("\nlm2:\n")
+cor(countries$fertility_adol, countries$mortal_5)
+
+
+cat("\nlm3:\n")
+cor(countries$fertility, countries$mortal_5)
+```
+
+FAIL! - Model 2 and Model 3 don't pass the test, as, although not
+perfect
+
+**Test with VIF (Variance Inflation Factor)**
+
+if VIF \> 5 \| VIF \> 10:
+
+multi-collinearity is present
+
+```{r warning=FALSE}
+library(car)
+vif(lm_1); cat('\n'); vif(lm_2); cat('\n') ;vif(lm_3)
+```
+
+Based on the VIF test, they are all under the threshold of 5, so they
+would pass.
+
+***Nevertheless, Model 1 is the best***:
+
+```{r}
+lm_1 %>% summary()
+```
